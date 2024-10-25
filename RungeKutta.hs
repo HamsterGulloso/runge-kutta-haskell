@@ -1,5 +1,7 @@
 module RungeKutta (
-    rungeKutta
+    rungeKutta,
+    rungeKuttaFelhberg,
+    RungeKuttaFelhbergResult
 ) where
 
 rungeKutta ::
@@ -31,8 +33,14 @@ rungeKutta f t0 y0 tMax h =
         rungeKutta f t1 y1 tMax h
         >>= \rk -> Just ((t0, y0) : rk)
 
+data RungeKuttaFelhbergResult a i =
+    RungeKuttaFelhbergResult a a i
+
+instance (Show a) => Show (RungeKuttaFelhbergResult a a) where
+    show (RungeKuttaFelhbergResult t y s) = "\nt: " ++ (show t) ++ "\ny: " ++ (show y) ++ "lasting steps: " ++ (show s)
+
 rungeKuttaFelhberg ::
-    (Fractional n)
+    (Floating n)
     => (Ord n)
     => (Integral i)
     => (n -> n -> n)
@@ -41,10 +49,13 @@ rungeKuttaFelhberg ::
     -> n
     -> n
     -> i
-    -> Maybe [(n, n)] 
+    -> Maybe [RungeKuttaFelhbergResult n i]
 rungeKuttaFelhberg _ _ _ 0 _ _ = Nothing
+rungeKuttaFelhberg _ t0 w0 _ _ 0 = Just [RungeKuttaFelhbergResult t0 w0 0]
 rungeKuttaFelhberg f t0 w0 h epsilon n_iter =
     let
+        q = ((epsilon * h) / abs (w'1 - w1)) ** (1 / 4)
+        h' = h * q
         k1 = h * f t0 w0
         k2 = h * f (t0 + h / 4) (w0 + k1 / 4)
         k3 = h * f (t0 + 3 * h / 8) (w0 + 3 * k1 / 32 + 9 * k2 / 32)
@@ -53,8 +64,14 @@ rungeKuttaFelhberg f t0 w0 h epsilon n_iter =
         k6 = h * f (t0 + h / 2) (w0 - 8 * k1 / 27 + 2 * k2 - 3544 * k3 / 2565 + 1859 * k4 / 4104 - 11 * k5 / 40)
         w1 = w0 + 25 * k1 / 216 + 1408 * k3 / 2565 + 2197 * k4 / 4104 - k5 / 5
         w'1 = w0 + 16 * k1 / 135 + 6656 * k3 / 12825 + 28561 * k4 / 56430 - 9 * k5 / 50 + 2 * k6 / 55
+        t1 = t0 + h
     in
-        Nothing
+        if q >= 1 then
+            rungeKuttaFelhberg f t1 w1 h epsilon (n_iter - 1)
+            >>= \result -> Just(RungeKuttaFelhbergResult t1 w1 n_iter : result)
+        else
+            rungeKuttaFelhberg f t0 w0 h' epsilon (n_iter - 1)
+            
         
 
 
